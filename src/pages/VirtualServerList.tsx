@@ -162,7 +162,7 @@ export const VirtualServerList: React.FC = () => {
             </Tag>
             <Tag>:{record.port}</Tag>
             <Tooltip title={`Algoritmo: ${record.balance}`}>
-              <Tag icon={<Network size={10} />} style={{ cursor: "help" }}>
+              <Tag icon={<Network size={10} style={{ marginRight: 3 }}/>} style={{ cursor: "help" }}>
                 {record.balance}
               </Tag>
             </Tooltip>

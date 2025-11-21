@@ -1,6 +1,7 @@
 import React from "react";
 import { Row, Col, Card, Statistic } from "antd";
 import type { VirtualServer } from "../types/server";
+import { Network } from "lucide-react";
 
 interface StatsProps {
   data: VirtualServer[];
@@ -28,12 +29,16 @@ export const StatsDashboard: React.FC<StatsProps> = ({ data }) => {
       </Col>
       <Col span={6}>
         <Card variant="borderless" size="small">
-          <Statistic title="Active Conn (Simulated)" value={1245} />
+          <Statistic
+            title="Conexões Ativas" // Agora sim faz sentido
+            value={1245} // Valor simulado de tráfego/sockets
+            prefix={<Network size={16} />}
+          />
         </Card>
       </Col>
       <Col span={6}>
         <Card variant="borderless" size="small">
-          <Statistic title="Throughput" value="450 MB/s" />
+          <Statistic title="Taxa de Transferência" value="450 MB/s" />
         </Card>
       </Col>
     </Row>
