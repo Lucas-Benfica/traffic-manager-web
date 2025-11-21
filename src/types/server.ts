@@ -1,5 +1,5 @@
 export interface VirtualServer {
-  key: string;
+  id: string;
   name: string;
   status: 'online' | 'offline' | 'error' | 'maintenance';
   
@@ -17,9 +17,9 @@ export interface VirtualServer {
 
   // Timeouts
   timeouts: {
-    connect: string;
-    client: string;
-    server: string;
-    queue: string;
+    connect: number;
+    client: number;
+    server: number;
+    queue: number;
   };
 }

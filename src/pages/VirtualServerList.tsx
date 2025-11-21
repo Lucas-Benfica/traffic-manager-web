@@ -19,15 +19,14 @@ import {
   Clock,
   ShieldAlert,
   Plus,
-  Activity, // Adicionado o ícone do logo de volta
+  Activity,
 } from "lucide-react";
 
 import type { VirtualServer } from "../types/server";
-import { getInitialServers } from "../services/serverService";
 import { CreateServerModal } from "../components/CreateServerModal";
 import { StatsDashboard } from "../components/StatsDashboard";
+import { createVirtualServer, fetchVirtualServers } from "../services/api";
 
-// Trazendo de volta os componentes de Layout do Ant Design
 const { Header, Content } = Layout;
 const { Text } = Typography;
 
@@ -39,20 +38,32 @@ export const VirtualServerList: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [modal, modalContextHolder] = Modal.useModal();
 
+  const getVirtualServersList = async () => {
+    try {
+      setLoading(true);
+      const initialData = await fetchVirtualServers();
+      setData(initialData || []);
+    } catch (error) {
+      messageApi.error("Error when searching backend servers.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const initialData = getInitialServers();
-    setData(initialData);
+    getVirtualServersList();
   }, []);
 
   // --- Actions ---
   const handleStatusChange = (
-    key: string,
+    id: string,
     newStatus: VirtualServer["status"]
   ) => {
     setLoading(true);
     setTimeout(() => {
       const newData = data.map((item) => {
-        if (item.key === key) return { ...item, status: newStatus };
+        if (item.id === id) return { ...item, status: newStatus };
         return item;
       });
       setData(newData);
@@ -63,40 +74,48 @@ export const VirtualServerList: React.FC = () => {
     }, 600);
   };
 
-  const handleDelete = (key: string) => {
+  const handleDelete = (id: string) => {
     modal.confirm({
       title: "Remover Virtual Server?",
       content: "Isso irá parar o tráfego imediatamente.",
       okText: "Remover",
       okType: "danger",
       onOk() {
-        setData((prev) => prev.filter((item) => item.key !== key));
+        setData((prev) => prev.filter((item) => item.id !== id));
         messageApi.success("Virtual Server removido.");
       },
     });
   };
 
-  const handleAddServer = (values: any) => {
-    const newServer: VirtualServer = {
-      key: Date.now().toString(),
-      name: values.name,
-      status: "offline",
-      port: values.port,
-      mode: values.mode,
-      balance: values.balance,
-      backends: values.backends || [],
-      maxConn: values.maxConn,
-      maxQueue: values.maxQueue,
-      timeouts: {
-        connect: `${values.timeout_connect}s`,
-        client: `${values.timeout_client}s`,
-        server: `${values.timeout_server}s`,
-        queue: `${values.timeout_queue}s`,
-      },
-    };
-    setData((prev) => [...prev, newServer]);
-    setIsModalVisible(false);
-    messageApi.success("Virtual Server configurado!");
+  const handleAddServer = async (values: any) => {
+    try {
+      const serverDTO = {
+        name: values.name,
+        port: values.port,
+        mode: values.mode,
+        balance: values.balance,
+        backends: values.backends || [],
+        maxConn: values.maxConn,
+        maxQueue: values.maxQueue,
+        timeouts: {
+          connect: values.timeout_connect,
+          client: values.timeout_client,
+          server: values.timeout_server,
+          queue: values.timeout_queue,
+        },
+      };
+
+      // Chama a API
+      const newServer = await createVirtualServer(serverDTO);
+
+      // Atualiza a lista
+      setData((prev) => [newServer, ...prev]);
+      setIsModalVisible(false);
+      messageApi.success("Virtual Server criado com sucesso!");
+    } catch (error) {
+      messageApi.error("Falha ao criar servidor.");
+      console.error(error);
+    }
   };
 
   // --- Styles ---
@@ -162,7 +181,10 @@ export const VirtualServerList: React.FC = () => {
             </Tag>
             <Tag>:{record.port}</Tag>
             <Tooltip title={`Algoritmo: ${record.balance}`}>
-              <Tag icon={<Network size={10} style={{ marginRight: 3 }}/>} style={{ cursor: "help" }}>
+              <Tag
+                icon={<Network size={10} style={{ marginRight: 3 }} />}
+                style={{ cursor: "help" }}
+              >
                 {record.balance}
               </Tag>
             </Tooltip>
@@ -219,7 +241,7 @@ export const VirtualServerList: React.FC = () => {
               ghost
               size="small"
               icon={<Power size={14} />}
-              onClick={() => handleStatusChange(record.key, "online")}
+              onClick={() => handleStatusChange(record.id, "online")}
               loading={loading}
             >
               Start
@@ -229,7 +251,7 @@ export const VirtualServerList: React.FC = () => {
               danger
               size="small"
               icon={<Power size={14} />}
-              onClick={() => handleStatusChange(record.key, "offline")}
+              onClick={() => handleStatusChange(record.id, "offline")}
               loading={loading}
             >
               Stop
@@ -239,7 +261,7 @@ export const VirtualServerList: React.FC = () => {
             type="text"
             icon={<Trash2 size={14} />}
             danger
-            onClick={() => handleDelete(record.key)}
+            onClick={() => handleDelete(record.id)}
           />
         </Space>
       ),
@@ -271,7 +293,7 @@ export const VirtualServerList: React.FC = () => {
           <Table
             columns={columns}
             dataSource={data}
-            rowKey="key"
+            rowKey="id"
             pagination={{ pageSize: 5 }}
           />
         </Card>

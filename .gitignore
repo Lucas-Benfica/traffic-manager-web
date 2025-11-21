@@ -26,3 +26,5 @@ dist-ssr
 # Arquivos de teste locais
 teste.tsx
 src/teste.tsx
+
+.env
