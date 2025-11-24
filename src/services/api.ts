@@ -55,3 +55,39 @@ export async function updateVirtualServer(
   const response = await api.patch<UpdateStatusResponse>(`/virtual-servers/${id}`, data);
   return response.data.virtualServer;
 }
+
+export async function downloadServerConfig(id: string): Promise<void> {
+  try {
+    const response = await api.get(`/virtual-servers/${id}/config`, {
+      responseType: 'blob', 
+    });
+
+    // Tenta extrair o nome do arquivo do Header que o Backend enviou
+    const disposition = response.headers['content-disposition'];
+    let filename = 'server-config.txt'; // Fallback caso falhe
+
+    if (disposition && disposition.indexOf('attachment') !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, '');
+      }
+    }
+
+    // Cria o link de download no navegador
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    // Limpeza de memória
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Download failed", error);
+    throw error;
+  }
+}

@@ -33,6 +33,7 @@ import {
   fetchVirtualServers,
   updateVirtualServer,
   updateVirtualServerStatus,
+  downloadServerConfig,
 } from "../services/api";
 
 const { Header, Content } = Layout;
@@ -167,6 +168,28 @@ export const VirtualServerList: React.FC = () => {
         }
       },
     });
+  };
+  const handleDownload = async (record: VirtualServer) => {
+    try {
+      messageApi.open({
+        key: "downloading",
+        type: "loading",
+        content: `Baixando config do ${record.name}...`,
+      });
+
+      await downloadServerConfig(record.id);
+
+      messageApi.success({
+        key: "downloading",
+        content: "Download concluído!",
+        duration: 2,
+      });
+    } catch (error) {
+      messageApi.error({
+        key: "downloading",
+        content: "Erro ao baixar configuração.",
+      });
+    }
   };
 
   // --- Styles ---
@@ -332,10 +355,7 @@ export const VirtualServerList: React.FC = () => {
             <Button
               size="small"
               icon={<Download size={14} />}
-              color="gold"
-              onClick={() =>
-                messageApi.info(`Baixando config do ${record.name}...`)
-              }
+              onClick={() => handleDownload(record)}
             >
               Baixar
             </Button>
