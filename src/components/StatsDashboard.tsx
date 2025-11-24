@@ -13,7 +13,7 @@ export const StatsDashboard: React.FC<StatsProps> = ({ data }) => {
       <Col span={12}>
         <Card variant="borderless" size="small">
           <Statistic
-            title="VS Online"
+            title="VS Ativos"
             value={data.filter((s) => s.status === "online").length}
             valueStyle={{ color: "#3f8600" }}
           />
