@@ -1,7 +1,7 @@
 export interface VirtualServer {
   id: string;
   name: string;
-  status: 'online' | 'offline' | 'error' | 'maintenance';
+  status: 'online' | 'offline' | 'error' | 'maintenance' | 'active' | 'deactivated';
   
   // Configurações de Rede
   port: 80 | 443;

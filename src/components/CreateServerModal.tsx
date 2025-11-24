@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Modal,
   Form,
@@ -9,7 +9,6 @@ import {
   Divider,
   Button,
   InputNumber,
-  Space,
 } from "antd";
 import { MinusCircle, Plus } from "lucide-react";
 import type { VirtualServer } from "../types/server";
@@ -19,22 +18,45 @@ const { Option } = Select;
 interface CreateServerModalProps {
   visible: boolean;
   onCancel: () => void;
-  onCreate: (values: any) => void;
+  onSubmit: (values: any) => void;
+  editingData?: VirtualServer | null;
 }
 
 export const CreateServerModal: React.FC<CreateServerModalProps> = ({
   visible,
   onCancel,
-  onCreate,
+  onSubmit,
+  editingData,
 }) => {
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (visible) {
+      if (editingData) {
+        form.setFieldsValue({
+          name: editingData.name,
+          port: editingData.port,
+          mode: editingData.mode,
+          balance: editingData.balance,
+          maxConn: editingData.maxConn,
+          maxQueue: editingData.maxQueue,
+          backends: editingData.backends,
+          timeout_connect: editingData.timeouts.connect,
+          timeout_client: editingData.timeouts.client,
+          timeout_server: editingData.timeouts.server,
+          timeout_queue: editingData.timeouts.queue,
+        });
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [visible, editingData, form]);
 
   const handleOk = () => {
     form
       .validateFields()
       .then((values) => {
-        onCreate(values);
-        form.resetFields(); // Limpa o formulário após o sucesso
+        onSubmit(values);
       })
       .catch((info) => {
         console.log("Validate Failed:", info);
@@ -43,17 +65,20 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
 
   return (
     <Modal
-      title="Configurar Novo Virtual Server"
+      title={
+        editingData ? "Editar Virtual Server" : "Criar Novo Virtual Server"
+      }
       open={visible}
       onOk={handleOk}
       onCancel={onCancel}
       width={700}
-      okText="Criar Servidor"
+      okText={editingData ? "Salvar Alterações" : "Criar Servidor"}
       cancelText="Cancelar"
     >
       <Form
         form={form}
         layout="vertical"
+        // Valores padrão APENAS para criação (resetFields usa isso)
         initialValues={{
           port: 80,
           mode: "http",
@@ -64,7 +89,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
           timeout_client: 30,
           timeout_server: 30,
           timeout_queue: 30,
-          backends: ["10.0.0.1:80"], // Valor inicial para facilitar testes
+          backends: ["10.0.0.1:80"],
         }}
       >
         {/* --- Seção Principal --- */}
@@ -103,7 +128,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
           </Select>
         </Form.Item>
 
-        {/* --- Seção Backends (Lista Dinâmica) --- */}
+        {/* --- Seção Backends --- */}
         <Divider orientation="left" style={{ borderColor: "#d9d9d9" }}>
           Backends Pool
         </Divider>

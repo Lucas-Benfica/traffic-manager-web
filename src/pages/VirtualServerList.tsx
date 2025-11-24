@@ -20,12 +20,20 @@ import {
   ShieldAlert,
   Plus,
   Activity,
+  Download,
+  Edit,
 } from "lucide-react";
 
 import type { VirtualServer } from "../types/server";
 import { CreateServerModal } from "../components/CreateServerModal";
 import { StatsDashboard } from "../components/StatsDashboard";
-import { createVirtualServer, fetchVirtualServers } from "../services/api";
+import {
+  createVirtualServer,
+  deleteVirtualServer,
+  fetchVirtualServers,
+  updateVirtualServer,
+  updateVirtualServerStatus,
+} from "../services/api";
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -33,6 +41,9 @@ const { Text } = Typography;
 export const VirtualServerList: React.FC = () => {
   const [data, setData] = useState<VirtualServer[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingServer, setEditingServer] = useState<VirtualServer | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
 
   const [messageApi, contextHolder] = message.useMessage();
@@ -55,39 +66,24 @@ export const VirtualServerList: React.FC = () => {
     getVirtualServersList();
   }, []);
 
+  // --- Controles do Modal ---
+  const openCreateModal = () => {
+    setEditingServer(null);
+    setIsModalVisible(true);
+  };
+
+  const openEditModal = (server: VirtualServer) => {
+    setEditingServer(server);
+    setIsModalVisible(true);
+  };
+
+  const handleModalCancel = () => {
+    setIsModalVisible(false);
+    setEditingServer(null);
+  };
+
   // --- Actions ---
-  const handleStatusChange = (
-    id: string,
-    newStatus: VirtualServer["status"]
-  ) => {
-    setLoading(true);
-    setTimeout(() => {
-      const newData = data.map((item) => {
-        if (item.id === id) return { ...item, status: newStatus };
-        return item;
-      });
-      setData(newData);
-      setLoading(false);
-      messageApi.success(
-        `VS ${newStatus === "online" ? "Iniciado" : "Parado"} com sucesso`
-      );
-    }, 600);
-  };
-
-  const handleDelete = (id: string) => {
-    modal.confirm({
-      title: "Remover Virtual Server?",
-      content: "Isso irá parar o tráfego imediatamente.",
-      okText: "Remover",
-      okType: "danger",
-      onOk() {
-        setData((prev) => prev.filter((item) => item.id !== id));
-        messageApi.success("Virtual Server removido.");
-      },
-    });
-  };
-
-  const handleAddServer = async (values: any) => {
+  const handleFormSubmit = async (values: any) => {
     try {
       const serverDTO = {
         name: values.name,
@@ -105,17 +101,72 @@ export const VirtualServerList: React.FC = () => {
         },
       };
 
-      // Chama a API
-      const newServer = await createVirtualServer(serverDTO);
+      if (editingServer) {
+        const updatedServer = await updateVirtualServer(
+          editingServer.id,
+          serverDTO
+        );
 
-      // Atualiza a lista
-      setData((prev) => [newServer, ...prev]);
-      setIsModalVisible(false);
-      messageApi.success("Virtual Server criado com sucesso!");
+        setData((prev) =>
+          prev.map((item) =>
+            item.id === updatedServer.id ? updatedServer : item
+          )
+        );
+
+        messageApi.success("Virtual Server editado com sucesso!");
+      } else {
+        const newServer = await createVirtualServer(serverDTO);
+
+        setData((prev) => [newServer, ...prev]);
+
+        messageApi.success("Virtual Server criado com sucesso!");
+      }
+
+      handleModalCancel();
     } catch (error) {
-      messageApi.error("Falha ao criar servidor.");
+      messageApi.error(
+        editingServer ? "Falha ao editar servidor." : "Falha ao criar servidor."
+      );
       console.error(error);
     }
+  };
+  // --- Actions da Tabela ---
+  const handleStatusChange = async (
+    id: string,
+    newStatus: VirtualServer["status"]
+  ) => {
+    setLoading(true);
+    try {
+      await updateVirtualServerStatus(id, newStatus);
+      const newData = data.map((item) => {
+        if (item.id === id) return { ...item, status: newStatus };
+        return item;
+      });
+      setData(newData);
+      messageApi.success(`VS atualizado para ${newStatus}`);
+    } catch (error) {
+      messageApi.error("Erro ao atualizar status");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleDelete = (id: string) => {
+    modal.confirm({
+      title: "Remover Virtual Server?",
+      content: "Isso irá parar o tráfego imediatamente.",
+      okText: "Remover",
+      okType: "danger",
+      cancelText: "Cancelar",
+      async onOk() {
+        try {
+          await deleteVirtualServer(id);
+          setData((prev) => prev.filter((item) => item.id !== id));
+          messageApi.success("Virtual Server removido.");
+        } catch (error) {
+          messageApi.error("Falha ao remover.");
+        }
+      },
+    });
   };
 
   // --- Styles ---
@@ -155,11 +206,13 @@ export const VirtualServerList: React.FC = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      width: 100,
+      width: 200,
       render: (status: string) => {
         const config = {
           online: { color: "success", text: "Online" },
           offline: { color: "default", text: "Offline" },
+          active: { color: "success", text: "Active" },
+          deactivated: { color: "default", text: "Deactivated" },
           error: { color: "error", text: "Error" },
           maintenance: { color: "warning", text: "Maint." },
         }[status] || { color: "default", text: status };
@@ -233,37 +286,70 @@ export const VirtualServerList: React.FC = () => {
       title: "Ações",
       key: "action",
       align: "right" as const,
+      width: 180,
       render: (_: any, record: VirtualServer) => (
-        <Space size="small">
-          {record.status === "offline" ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            alignItems: "flex-end",
+          }}
+        >
+          <Space size="small">
+            {record.status === "offline" || record.status === "deactivated" ? (
+              <Button
+                type="primary"
+                ghost
+                size="small"
+                icon={<Power size={14} />}
+                onClick={() => handleStatusChange(record.id, "active")}
+                loading={loading}
+              >
+                Ativar
+              </Button>
+            ) : (
+              <Button
+                danger
+                size="small"
+                icon={<Power size={14} />}
+                onClick={() => handleStatusChange(record.id, "deactivated")}
+                loading={loading}
+              >
+                Desativar
+              </Button>
+            )}
+
             <Button
-              type="primary"
-              ghost
-              size="small"
-              icon={<Power size={14} />}
-              onClick={() => handleStatusChange(record.id, "online")}
-              loading={loading}
-            >
-              Start
-            </Button>
-          ) : (
-            <Button
+              type="text"
+              icon={<Trash2 size={14} />}
               danger
+              onClick={() => handleDelete(record.id)}
+            />
+          </Space>
+
+          <Space size="small">
+            <Button
               size="small"
-              icon={<Power size={14} />}
-              onClick={() => handleStatusChange(record.id, "offline")}
-              loading={loading}
+              icon={<Download size={14} />}
+              color="gold"
+              onClick={() =>
+                messageApi.info(`Baixando config do ${record.name}...`)
+              }
             >
-              Stop
+              Baixar
             </Button>
-          )}
-          <Button
-            type="text"
-            icon={<Trash2 size={14} />}
-            danger
-            onClick={() => handleDelete(record.id)}
-          />
-        </Space>
+
+            <Button
+              type="text"
+              icon={<Edit size={14} />}
+              style={{ color: "#1890ff" }}
+              onClick={() => {
+                openEditModal(record);
+              }}
+            />
+          </Space>
+        </div>
       ),
     },
   ];
@@ -280,7 +366,7 @@ export const VirtualServerList: React.FC = () => {
         <Button
           type="primary"
           icon={<Plus size={16} />}
-          onClick={() => setIsModalVisible(true)}
+          onClick={openCreateModal}
         >
           Novo Virtual Server
         </Button>
@@ -300,8 +386,9 @@ export const VirtualServerList: React.FC = () => {
 
         <CreateServerModal
           visible={isModalVisible}
-          onCancel={() => setIsModalVisible(false)}
-          onCreate={handleAddServer}
+          onCancel={handleModalCancel}
+          onSubmit={handleFormSubmit}
+          editingData={editingServer}
         />
       </Content>
     </Layout>
