@@ -136,7 +136,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
         <Form.List name="backends">
           {(fields, { add, remove }) => (
             <>
-              {fields.map((field, index) => (
+              {fields.map((field) => (
                 <Form.Item
                   required={false}
                   key={field.key}

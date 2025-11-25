@@ -54,7 +54,7 @@ export const VirtualServerList: React.FC = () => {
     try {
       setLoading(true);
       const initialData = await fetchVirtualServers();
-      setData(initialData || []);
+      setData(initialData);
     } catch (error) {
       messageApi.error("Error when searching backend servers.");
       console.error(error);
@@ -174,20 +174,20 @@ export const VirtualServerList: React.FC = () => {
       messageApi.open({
         key: "downloading",
         type: "loading",
-        content: `Baixando config do ${record.name}...`,
+        content: `Gerando config do ${record.name}...`,
       });
 
       await downloadServerConfig(record.id);
 
       messageApi.success({
         key: "downloading",
-        content: "Download concluído!",
+        content: "Configuração salva com sucesso!",
         duration: 2,
       });
     } catch (error) {
       messageApi.error({
         key: "downloading",
-        content: "Erro ao baixar configuração.",
+        content: "Erro ao gerar configuração.",
       });
     }
   };
